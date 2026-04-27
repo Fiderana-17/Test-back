@@ -1,0 +1,43 @@
+const jwt = require("jsonwebtoken");
+
+/**
+ * Middleware d'authentification JWT.
+ * Vérifie le token Bearer dans le header Authorization.
+ */
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Token manquant ou invalide" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id, name, email, role }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Token expiré ou invalide" });
+  }
+};
+
+/**
+ * Middleware d'autorisation par rôle.
+ * Ex: authorize("admin") ou authorize("producteur", "admin")
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Non authentifié" });
+    }
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: `Accès refusé. Rôle requis : ${roles.join(" ou ")}`,
+      });
+    }
+    next();
+  };
+};
+
+module.exports = { authenticate, authorize };
